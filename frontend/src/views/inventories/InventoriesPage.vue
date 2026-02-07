@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, X, Check, Trash2, Edit } from 'lucide-vue-next'
 import { apiFetch } from '@/services/api'
+import { useAuth } from '@/composables/useAuth'
+
+const { canManageInventories } = useAuth()
 
 type InventoryStatus = 'draft' | 'completed' | 'archived'
 
@@ -331,6 +334,7 @@ onMounted(() => {
             <option value="archived">Archivé</option>
           </select>
           <button
+            v-if="canManageInventories"
             @click="openModal"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition-colors"
           >
@@ -401,26 +405,28 @@ onMounted(() => {
                     <button
                       @click="openItemModal(inventory)"
                       class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                      title="Gérer les produits"
+                      :title="canManageInventories ? 'Gérer les produits' : 'Voir les détails'"
                     >
                       <Edit class="w-4 h-4" />
                     </button>
-                    <button
-                      v-if="inventory.status === 'draft'"
-                      @click="completeInventory(inventory.id)"
-                      class="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                      title="Finaliser"
-                    >
-                      <Check class="w-4 h-4" />
-                    </button>
-                    <button
-                      v-if="inventory.status === 'draft'"
-                      @click="deleteInventory(inventory.id)"
-                      class="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                      title="Supprimer"
-                    >
-                      <Trash2 class="w-4 h-4" />
-                    </button>
+                    <template v-if="canManageInventories">
+                      <button
+                        v-if="inventory.status === 'draft'"
+                        @click="completeInventory(inventory.id)"
+                        class="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                        title="Finaliser"
+                      >
+                        <Check class="w-4 h-4" />
+                      </button>
+                      <button
+                        v-if="inventory.status === 'draft'"
+                        @click="deleteInventory(inventory.id)"
+                        class="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                        title="Supprimer"
+                      >
+                        <Trash2 class="w-4 h-4" />
+                      </button>
+                    </template>
                   </div>
                 </td>
               </tr>
@@ -550,7 +556,7 @@ onMounted(() => {
 
         <div class="flex-1 overflow-y-auto p-6">
           <!-- Form: Add/Edit Item -->
-          <div v-if="selectedInventory.status === 'draft'" class="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div v-if="selectedInventory.status === 'draft' && canManageInventories" class="mb-6 p-4 bg-gray-50 rounded-lg">
             <form @submit.prevent="saveItem" class="space-y-4">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -625,7 +631,7 @@ onMounted(() => {
                     <th class="px-3 py-2 text-right font-semibold text-gray-600">Attendu</th>
                     <th class="px-3 py-2 text-right font-semibold text-gray-600">Constaté</th>
                     <th class="px-3 py-2 text-right font-semibold text-gray-600">Écart</th>
-                    <th v-if="selectedInventory.status === 'draft'" class="px-3 py-2 text-right font-semibold text-gray-600">Actions</th>
+                    <th v-if="selectedInventory.status === 'draft' && canManageInventories" class="px-3 py-2 text-right font-semibold text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -650,7 +656,7 @@ onMounted(() => {
                         {{ item.difference > 0 ? '+' : '' }}{{ item.difference }}
                       </span>
                     </td>
-                    <td v-if="selectedInventory.status === 'draft'" class="px-3 py-2 text-right">
+                    <td v-if="selectedInventory.status === 'draft' && canManageInventories" class="px-3 py-2 text-right">
                       <div class="flex items-center justify-end gap-2">
                         <button
                           @click="openEditItemModal(selectedInventory, item)"
@@ -681,7 +687,7 @@ onMounted(() => {
           </div>
           <div class="flex gap-3">
             <button
-              v-if="selectedInventory.status === 'draft' && selectedInventory.items && selectedInventory.items.length > 0"
+              v-if="canManageInventories && selectedInventory.status === 'draft' && selectedInventory.items && selectedInventory.items.length > 0"
               @click="completeInventory(selectedInventory.id)"
               class="px-4 py-2 text-sm rounded-lg bg-green-600 text-white font-medium hover:bg-green-700"
             >

@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\MovementController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\AlertController;
+use App\Http\Controllers\Api\ExportController;
 use App\Http\Middleware\AdminOnly;
 use App\Http\Middleware\ForceJsonResponse;
 
@@ -29,16 +31,30 @@ Route::middleware('auth:api')->prefix('v1')->group(function () {
     // Dashboard
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 
+    // Alerts
+    Route::get('/alerts', [AlertController::class, 'index']);
+
+    // Exports
+    Route::get('/exports/stock/csv', [ExportController::class, 'stockCsv']);
+    Route::get('/exports/movements/csv', [ExportController::class, 'movementsCsv']);
+    Route::get('/exports/inventories/csv', [ExportController::class, 'inventoriesCsv']);
+
     // Categories
     Route::prefix('categories')->group(function () {
         Route::get('/', [CategoryController::class, 'index']);
         Route::post('/', [CategoryController::class, 'store']);
+        Route::get('/{id}', [CategoryController::class, 'show']);
+        Route::put('/{id}', [CategoryController::class, 'update']);
+        Route::delete('/{id}', [CategoryController::class, 'destroy']);
     });
 
     // Products
     Route::prefix('products')->group(function () {
         Route::get('/', [ProductController::class, 'index']);
         Route::post('/', [ProductController::class, 'store']);
+        Route::get('/{id}', [ProductController::class, 'show']);
+        Route::put('/{id}', [ProductController::class, 'update']);
+        Route::delete('/{id}', [ProductController::class, 'destroy']);
     });
 
     // Movements

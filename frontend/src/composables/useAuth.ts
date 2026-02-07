@@ -71,6 +71,11 @@ export function useAuth() {
   const canManageCategories = computed(() => hasAnyRole(['admin', 'gestionnaire']))
   const canManageMovements = computed(() => hasAnyRole(['admin', 'gestionnaire']))
   const canManageInventories = computed(() => hasAnyRole(['admin', 'gestionnaire']))
+  // Observateur : lecture seule (accès aux pages sans modifier)
+  const canViewProducts = computed(() => hasAnyRole(['admin', 'gestionnaire', 'observateur']))
+  const canViewCategories = computed(() => hasAnyRole(['admin', 'gestionnaire', 'observateur']))
+  const canViewMovements = computed(() => hasAnyRole(['admin', 'gestionnaire', 'observateur']))
+  const canViewInventories = computed(() => hasAnyRole(['admin', 'gestionnaire', 'observateur']))
   const canViewReports = computed(() => isAuthenticated.value) // Tous les utilisateurs authentifiés
   const canViewPredictions = computed(() => isAuthenticated.value)
   const canViewAlerts = computed(() => isAuthenticated.value)
@@ -207,6 +212,10 @@ export function useAuth() {
     canManageCategories,
     canManageMovements,
     canManageInventories,
+    canViewProducts,
+    canViewCategories,
+    canViewMovements,
+    canViewInventories,
     canViewReports,
     canViewPredictions,
     canViewAlerts,

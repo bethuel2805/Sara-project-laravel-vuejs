@@ -39,3 +39,33 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   return res.json()
 }
 
+export async function apiDownload(path: string, filename: string) {
+  const token = getAuthToken()
+  const headers: HeadersInit = {}
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, { headers })
+
+  if (res.status === 401) {
+    sessionStorage.removeItem('sara_token')
+    sessionStorage.removeItem('sara_user')
+    window.location.href = '/login'
+    throw new Error('Session expirée. Veuillez vous reconnecter.')
+  }
+
+  if (!res.ok) {
+    throw new Error(`Erreur lors du téléchargement (${res.status})`)
+  }
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

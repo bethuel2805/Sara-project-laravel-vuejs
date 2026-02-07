@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, X, Search, Filter } from 'lucide-vue-next'
+import { Plus, X, Search, Filter, Pencil, Trash2 } from 'lucide-vue-next'
 import PageHeader from '@/components/widgets/PageHeader.vue'
 import PageCard from '@/components/widgets/PageCard.vue'
 import { apiFetch } from '@/services/api'
+import { useAuth } from '@/composables/useAuth'
+
+const { canManageProducts } = useAuth()
 
 type Category = {
   id: number
@@ -26,6 +29,7 @@ type Product = {
 }
 
 const isModalOpen = ref(false)
+const editingProductId = ref<number | null>(null)
 const search = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -110,12 +114,38 @@ const paginatedProducts = computed(() => {
   return filteredProducts.value.slice(start, start + pageSize.value)
 })
 
-const openModal = () => {
+const openModal = (product?: Product) => {
+  if (product) {
+    editingProductId.value = product.id
+    newProduct.value = {
+      name: product.name,
+      code: product.code,
+      categoryId: product.category?.id ?? null,
+      supplier: product.supplier || '',
+      price: product.price,
+      stock: product.stock,
+      minStock: product.minStock,
+      optimalStock: product.optimalStock
+    }
+  } else {
+    editingProductId.value = null
+    newProduct.value = {
+      name: '',
+      code: '',
+      categoryId: null,
+      supplier: '',
+      price: 0,
+      stock: 0,
+      minStock: 0,
+      optimalStock: 0
+    }
+  }
   isModalOpen.value = true
 }
 
 const closeModal = () => {
   isModalOpen.value = false
+  editingProductId.value = null
   newProduct.value = {
     name: '',
     code: '',
@@ -150,16 +180,39 @@ const saveProduct = async () => {
       optimal_stock: Number(newProduct.value.optimalStock) || 0
     }
 
-    const created = await apiFetch('/products', {
-      method: 'POST',
-      body: JSON.stringify(productData)
-    })
-
-    // Ajouter le nouveau produit à la liste (convertir depuis l'API)
-    products.value.push(convertProductFromApi(created))
-    closeModal()
+    if (editingProductId.value) {
+      const updated = await apiFetch(`/products/${editingProductId.value}`, {
+        method: 'PUT',
+        body: JSON.stringify(productData)
+      })
+      const index = products.value.findIndex((p) => p.id === editingProductId.value)
+      if (index !== -1) products.value[index] = convertProductFromApi(updated)
+      closeModal()
+    } else {
+      const created = await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify(productData)
+      })
+      products.value.push(convertProductFromApi(created))
+      closeModal()
+    }
   } catch (err: any) {
-    errorMessage.value = err.message || 'Erreur lors de la création du produit'
+    errorMessage.value = err.message || 'Erreur lors de l\'enregistrement du produit'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const deleteProduct = async (product: Product) => {
+  if (!confirm(`Supprimer le produit "${product.name}" ? Cette action est irréversible.`)) return
+
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    await apiFetch(`/products/${product.id}`, { method: 'DELETE' })
+    products.value = products.value.filter((p) => p.id !== product.id)
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Erreur lors de la suppression'
   } finally {
     isLoading.value = false
   }
@@ -191,7 +244,8 @@ const saveProduct = async () => {
             Filtres
           </button>
           <button
-            @click="openModal"
+            v-if="canManageProducts"
+            @click="openModal()"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition-colors"
           >
             <Plus class="w-4 h-4" />
@@ -223,6 +277,7 @@ const saveProduct = async () => {
                 <th class="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">Stock</th>
                 <th class="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">Stock min.</th>
                 <th class="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">Stock optimal</th>
+                <th v-if="canManageProducts" class="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100" v-if="products.length > 0">
@@ -265,6 +320,24 @@ const saveProduct = async () => {
                 </td>
                 <td class="px-4 py-3 text-right text-gray-600 whitespace-nowrap">
                   {{ product.optimalStock }}
+                </td>
+                <td v-if="canManageProducts" class="px-4 py-3 text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      @click="openModal(product)"
+                      class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Modifier"
+                    >
+                      <Pencil class="w-4 h-4" />
+                    </button>
+                    <button
+                      @click="deleteProduct(product)"
+                      class="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      title="Supprimer"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -321,9 +394,11 @@ const saveProduct = async () => {
           <X class="w-5 h-5" />
         </button>
 
-        <h2 class="text-lg font-semibold text-gray-800 mb-1">Nouveau produit</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">
+          {{ editingProductId ? 'Modifier le produit' : 'Nouveau produit' }}
+        </h2>
         <p class="text-sm text-gray-500 mb-4">
-          Enregistrer un nouveau produit dans le stock.
+          {{ editingProductId ? 'Modifier les informations du produit.' : 'Enregistrer un nouveau produit dans le stock.' }}
         </p>
         <p v-if="errorMessage" class="text-sm text-red-600 bg-red-50 p-2 rounded mb-4">
           {{ errorMessage }}

@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, X, Trash2 } from 'lucide-vue-next'
 import { apiFetch, API_BASE_URL } from '@/services/api'
+import { useAuth } from '@/composables/useAuth'
+
+const { canManageMovements } = useAuth()
 
 type MovementType = 'entree' | 'sortie'
 
@@ -265,6 +268,7 @@ onMounted(async () => {
             <option value="sortie">Sorties</option>
           </select>
           <button
+            v-if="canManageMovements"
             @click="openModal"
             :disabled="isLoading"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -302,7 +306,7 @@ onMounted(async () => {
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Motif</th>
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Utilisateur</th>
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Date</th>
-                <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">Actions</th>
+                <th v-if="canManageMovements" class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -336,7 +340,7 @@ onMounted(async () => {
                 <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
                   {{ formatDate(movement.date) }}
                 </td>
-                <td class="px-4 py-3 text-center whitespace-nowrap">
+                <td v-if="canManageMovements" class="px-4 py-3 text-center whitespace-nowrap">
                   <button
                     @click="deleteMovement(movement.id)"
                     :disabled="isLoading"

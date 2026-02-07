@@ -14,7 +14,6 @@ import {
   FileText,
   Download,
   Users,
-  Settings,
   ChevronLeft,
   User,
   LogOut
@@ -23,7 +22,7 @@ import {
 const router = useRouter()
 const route = useRoute()
 const { isCollapsed, toggleSidebar } = useSidebar()
-const { user, logout, canManageUsers, canManageProducts, canManageCategories, canManageMovements, canManageInventories } = useAuth()
+const { user, logout, canManageUsers, canManageProducts, canManageCategories, canManageMovements, canManageInventories, canViewProducts, canViewCategories, canViewMovements, canViewInventories } = useAuth()
 
 const menuItems = computed(() => {
   const items = [
@@ -39,28 +38,28 @@ const menuItems = computed(() => {
       icon: Package,
       path: '/products',
       active: route.path.startsWith('/products'),
-      show: canManageProducts.value
+      show: canViewProducts.value
     },
     {
       name: 'Catégories',
       icon: FolderTree,
       path: '/categories',
       active: route.path.startsWith('/categories'),
-      show: canManageCategories.value
+      show: canViewCategories.value
     },
     {
       name: 'Mouvements',
       icon: ArrowRightLeft,
       path: '/movements',
       active: route.path.startsWith('/movements'),
-      show: canManageMovements.value
+      show: canViewMovements.value
     },
     {
       name: 'Inventaires',
       icon: ClipboardList,
       path: '/inventories',
       active: route.path.startsWith('/inventories'),
-      show: canManageInventories.value
+      show: canViewInventories.value
     },
     {
       name: 'Prédictions',
@@ -96,13 +95,6 @@ const menuItems = computed(() => {
       path: '/users',
       active: route.path.startsWith('/users'),
       show: canManageUsers.value
-    },
-    {
-      name: 'Paramètres',
-      icon: Settings,
-      path: '/settings',
-      active: route.path.startsWith('/settings'),
-      show: true
     }
   ]
   

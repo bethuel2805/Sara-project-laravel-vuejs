@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, X } from 'lucide-vue-next'
+import { Plus, X, Pencil, Trash2 } from 'lucide-vue-next'
 import PageHeader from '@/components/widgets/PageHeader.vue'
 import PageCard from '@/components/widgets/PageCard.vue'
 import { apiFetch } from '@/services/api'
+import { useAuth } from '@/composables/useAuth'
+
+const { canManageCategories } = useAuth()
 
 type Category = {
   id: number
@@ -16,6 +19,7 @@ type Category = {
 }
 
 const isModalOpen = ref(false)
+const editingCategoryId = ref<number | null>(null)
 const search = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -35,13 +39,23 @@ const loadCategories = async () => {
   errorMessage.value = ''
   try {
     const data = await apiFetch('/categories')
-    categories.value = data
+    categories.value = Array.isArray(data) ? data.map(convertCategoryFromApi) : []
   } catch (err: any) {
     errorMessage.value = err.message || 'Erreur lors du chargement des catégories'
   } finally {
     isLoading.value = false
   }
 }
+
+const convertCategoryFromApi = (c: any): Category => ({
+  id: c.id,
+  name: c.name,
+  code: c.code,
+  parentId: c.parent_id ?? c.parentId ?? null,
+  description: c.description ?? null,
+  createdAt: c.created_at,
+  updatedAt: c.updated_at
+})
 
 // Obtenir le nom de la catégorie parente
 const getParentName = (parentId: number | null) => {
@@ -74,12 +88,30 @@ const paginatedCategories = computed(() => {
   return filteredCategories.value.slice(start, start + pageSize.value)
 })
 
-const openModal = () => {
+const openModal = (category?: Category) => {
+  if (category) {
+    editingCategoryId.value = category.id
+    newCategory.value = {
+      name: category.name,
+      code: category.code,
+      parentId: category.parentId,
+      description: category.description || ''
+    }
+  } else {
+    editingCategoryId.value = null
+    newCategory.value = {
+      name: '',
+      code: '',
+      parentId: null,
+      description: ''
+    }
+  }
   isModalOpen.value = true
 }
 
 const closeModal = () => {
   isModalOpen.value = false
+  editingCategoryId.value = null
   newCategory.value = {
     name: '',
     code: '',
@@ -102,20 +134,43 @@ const saveCategory = async () => {
     const categoryData = {
       name: newCategory.value.name,
       code: newCategory.value.code,
-      parentId: newCategory.value.parentId || null,
+      parent_id: newCategory.value.parentId || null,
       description: newCategory.value.description || null
     }
 
-    const created = await apiFetch('/categories', {
-      method: 'POST',
-      body: JSON.stringify(categoryData)
-    })
-
-    // Ajouter la nouvelle catégorie à la liste
-    categories.value.push(created)
-    closeModal()
+    if (editingCategoryId.value) {
+      const updated = await apiFetch(`/categories/${editingCategoryId.value}`, {
+        method: 'PUT',
+        body: JSON.stringify(categoryData)
+      })
+      const index = categories.value.findIndex((c) => c.id === editingCategoryId.value)
+      if (index !== -1) categories.value[index] = convertCategoryFromApi(updated)
+      closeModal()
+    } else {
+      const created = await apiFetch('/categories', {
+        method: 'POST',
+        body: JSON.stringify(categoryData)
+      })
+      categories.value.push(convertCategoryFromApi(created))
+      closeModal()
+    }
   } catch (err: any) {
-    errorMessage.value = err.message || 'Erreur lors de la création de la catégorie'
+    errorMessage.value = err.message || 'Erreur lors de l\'enregistrement de la catégorie'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const deleteCategory = async (category: Category) => {
+  if (!confirm(`Supprimer la catégorie "${category.name}" ? Les produits associés seront aussi supprimés.`)) return
+
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    await apiFetch(`/categories/${category.id}`, { method: 'DELETE' })
+    categories.value = categories.value.filter((c) => c.id !== category.id)
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Erreur lors de la suppression'
   } finally {
     isLoading.value = false
   }
@@ -138,7 +193,8 @@ const saveCategory = async () => {
             class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
           />
           <button
-            @click="openModal"
+            v-if="canManageCategories"
+            @click="openModal()"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition-colors"
           >
             <Plus class="w-4 h-4" />
@@ -166,6 +222,7 @@ const saveCategory = async () => {
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Code</th>
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Catégorie parente</th>
                 <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">Description</th>
+                <th v-if="canManageCategories" class="px-4 py-3 text-right font-semibold text-gray-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100" v-if="categories.length > 0">
@@ -185,6 +242,24 @@ const saveCategory = async () => {
                 </td>
                 <td class="px-4 py-3 text-gray-600">
                   {{ category.description || '-' }}
+                </td>
+                <td v-if="canManageCategories" class="px-4 py-3 text-right whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      @click="openModal(category)"
+                      class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Modifier"
+                    >
+                      <Pencil class="w-4 h-4" />
+                    </button>
+                    <button
+                      @click="deleteCategory(category)"
+                      class="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      title="Supprimer"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -241,9 +316,11 @@ const saveCategory = async () => {
           <X class="w-5 h-5" />
         </button>
 
-        <h2 class="text-lg font-semibold text-gray-800 mb-1">Nouvelle catégorie</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">
+          {{ editingCategoryId ? 'Modifier la catégorie' : 'Nouvelle catégorie' }}
+        </h2>
         <p class="text-sm text-gray-500 mb-4">
-          Créer une catégorie ou sous-catégorie.
+          {{ editingCategoryId ? 'Modifier les informations de la catégorie.' : 'Créer une catégorie ou sous-catégorie.' }}
         </p>
         <p v-if="errorMessage" class="text-sm text-red-600 bg-red-50 p-2 rounded mb-4">
           {{ errorMessage }}
@@ -276,7 +353,11 @@ const saveCategory = async () => {
                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               >
                 <option :value="null">Aucune</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                <option
+                  v-for="cat in categories.filter((c) => c.id !== editingCategoryId.value)"
+                  :key="cat.id"
+                  :value="cat.id"
+                >
                   {{ cat.name }}
                 </option>
               </select>

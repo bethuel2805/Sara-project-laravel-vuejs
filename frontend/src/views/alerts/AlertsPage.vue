@@ -1,59 +1,55 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Bell } from 'lucide-vue-next'
+import { apiFetch } from '@/services/api'
 
 type AlertType = 'rupture' | 'seuil' | 'expiration' | 'surstock'
 
 type Alert = {
-  id: number
+  id: string
   type: AlertType
+  product_id: number
   product: string
   message: string
   severity: 'info' | 'warning' | 'critical'
-  createdAt: string
+  created_at?: string
 }
 
 const filterType = ref<AlertType | 'all'>('all')
+const alerts = ref<Alert[]>([])
+const isLoading = ref(false)
+const error = ref<string | null>(null)
 
-const alerts = ref<Alert[]>([
-  {
-    id: 1,
-    type: 'rupture',
-    product: 'Produit A - PRD-001',
-    message: 'Rupture prévue dans 3 jours selon les prédictions.',
-    severity: 'critical',
-    createdAt: 'Il y a 2h'
-  },
-  {
-    id: 2,
-    type: 'seuil',
-    product: 'Produit B - PRD-045',
-    message: 'Stock minimum atteint (12 unités restantes).',
-    severity: 'warning',
-    createdAt: 'Il y a 5h'
-  },
-  {
-    id: 3,
-    type: 'expiration',
-    product: 'Produit C - PRD-089',
-    message: 'Expiration dans 7 jours pour 30 unités.',
-    severity: 'warning',
-    createdAt: 'Hier'
-  },
-  {
-    id: 4,
-    type: 'surstock',
-    product: 'Produit D - PRD-123',
-    message: 'Niveau de stock supérieur à l’optimal depuis 30 jours.',
-    severity: 'info',
-    createdAt: 'Il y a 3 jours'
+const loadAlerts = async () => {
+  isLoading.value = true
+  error.value = null
+  try {
+    const url = filterType.value !== 'all' ? `/alerts?type=${filterType.value}` : '/alerts'
+    const res = await apiFetch(url)
+    alerts.value = res.data || []
+  } catch (err: any) {
+    error.value = err.message || 'Erreur lors du chargement des alertes'
+    alerts.value = []
+  } finally {
+    isLoading.value = false
   }
-])
+}
 
-const filteredAlerts = computed(() => {
-  if (filterType.value === 'all') return alerts.value
-  return alerts.value.filter((a) => a.type === filterType.value)
-})
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - d.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  if (minutes < 60) return minutes <= 1 ? 'À l\'instant' : `Il y a ${minutes} min`
+  if (hours < 24) return `Il y a ${hours}h`
+  if (days < 7) return days === 1 ? 'Hier' : `Il y a ${days} jours`
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+const filteredAlerts = computed(() => alerts.value)
 
 const getTypeLabel = (type: AlertType) => {
   if (type === 'rupture') return 'Rupture'
@@ -67,6 +63,9 @@ const getSeverityClass = (severity: Alert['severity']) => {
   if (severity === 'warning') return 'bg-yellow-100 text-yellow-800'
   return 'bg-blue-100 text-blue-800'
 }
+
+watch(filterType, () => loadAlerts())
+onMounted(() => loadAlerts())
 </script>
 
 <template>
@@ -77,7 +76,7 @@ const getSeverityClass = (severity: Alert['severity']) => {
         <div>
           <h1 class="text-2xl font-bold text-gray-800">Alertes intelligentes</h1>
           <p class="text-sm text-gray-500">
-            Suivi des alertes de rupture, seuils, expiration et surstock.
+            Suivi des alertes de rupture, seuils et surstock.
           </p>
         </div>
         <div class="flex items-center gap-3">
@@ -88,15 +87,24 @@ const getSeverityClass = (severity: Alert['severity']) => {
             <option value="all">Tous les types</option>
             <option value="rupture">Rupture</option>
             <option value="seuil">Seuil minimum</option>
-            <option value="expiration">Expiration</option>
             <option value="surstock">Surstock</option>
           </select>
         </div>
       </div>
 
+      <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        {{ error }}
+      </div>
+
       <!-- Liste des alertes -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="divide-y divide-gray-100">
+        <div v-if="isLoading && alerts.length === 0" class="p-8 text-center text-gray-500">
+          Chargement des alertes...
+        </div>
+        <div v-else-if="filteredAlerts.length === 0" class="p-8 text-center text-gray-500">
+          Aucune alerte pour le moment.
+        </div>
+        <div v-else class="divide-y divide-gray-100">
           <div
             v-for="alert in filteredAlerts"
             :key="alert.id"
@@ -118,7 +126,7 @@ const getSeverityClass = (severity: Alert['severity']) => {
                   </span>
                 </div>
                 <span class="text-xs text-gray-400 whitespace-nowrap">
-                  {{ alert.createdAt }}
+                  {{ formatDate(alert.created_at) }}
                 </span>
               </div>
               <p class="text-sm text-gray-600">
@@ -138,4 +146,3 @@ const getSeverityClass = (severity: Alert['severity']) => {
     </div>
   </div>
 </template>
-

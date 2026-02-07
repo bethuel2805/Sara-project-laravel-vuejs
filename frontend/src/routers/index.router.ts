@@ -22,7 +22,7 @@ const routes = [
                 component: () => import("../views/movements/MovementsPage.vue"),
                 meta: {
                     requiresAuth: true,
-                    requiresRole: ['admin', 'gestionnaire']
+                    requiresRole: ['admin', 'gestionnaire', 'observateur']
                 }
             },
             {
@@ -31,7 +31,7 @@ const routes = [
                 component: () => import("../views/products/ProductsPage.vue"),
                 meta: {
                     requiresAuth: true,
-                    requiresRole: ['admin', 'gestionnaire']
+                    requiresRole: ['admin', 'gestionnaire', 'observateur']
                 }
             },
             {
@@ -40,7 +40,7 @@ const routes = [
                 component: () => import("../views/categories/CategoriesPage.vue"),
                 meta: {
                     requiresAuth: true,
-                    requiresRole: ['admin', 'gestionnaire']
+                    requiresRole: ['admin', 'gestionnaire', 'observateur']
                 }
             },
             {
@@ -49,7 +49,7 @@ const routes = [
                 component: () => import("../views/inventories/InventoriesPage.vue"),
                 meta: {
                     requiresAuth: true,
-                    requiresRole: ['admin', 'gestionnaire']
+                    requiresRole: ['admin', 'gestionnaire', 'observateur']
                 }
             },
             {

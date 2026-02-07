@@ -1,45 +1,52 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Download } from 'lucide-vue-next'
+import { apiDownload } from '@/services/api'
 
-type ExportItem = {
-  id: number
-  name: string
-  description: string
-  supportsPdf: boolean
-  supportsExcel: boolean
+const isDownloading = ref<string | null>(null)
+const error = ref<string | null>(null)
+
+const doExport = async (type: string, format: string) => {
+  isDownloading.value = type + format
+  error.value = null
+  try {
+    const date = new Date().toISOString().slice(0, 10)
+    if (type === 'stock' && format === 'csv') {
+      await apiDownload('/exports/stock/csv', `stock_${date}.csv`)
+    } else if (type === 'movements' && format === 'csv') {
+      await apiDownload('/exports/movements/csv', `mouvements_${date}.csv`)
+    } else if (type === 'inventories' && format === 'csv') {
+      await apiDownload('/exports/inventories/csv', `inventaires_${date}.csv`)
+    } else {
+      error.value = 'Export non disponible pour cette combinaison.'
+    }
+  } catch (err: any) {
+    error.value = err.message || 'Erreur lors du téléchargement'
+  } finally {
+    isDownloading.value = null
+  }
 }
 
-const items = ref<ExportItem[]>([
+const items = [
   {
-    id: 1,
+    id: 'stock',
     name: 'Stock actuel',
     description: 'Liste complète des produits avec quantités et valeur du stock.',
-    supportsPdf: true,
     supportsExcel: true
   },
   {
-    id: 2,
+    id: 'movements',
     name: 'Mouvements',
-    description: 'Historique des mouvements (entrées / sorties) pour une période donnée.',
-    supportsPdf: true,
+    description: 'Historique des mouvements (entrées / sorties).',
     supportsExcel: true
   },
   {
-    id: 3,
+    id: 'inventories',
     name: 'Inventaires',
     description: 'Résultats détaillés des inventaires réalisés.',
-    supportsPdf: true,
-    supportsExcel: false
-  },
-  {
-    id: 4,
-    name: 'Prédictions',
-    description: 'Prévisions de demande et risques de rupture.',
-    supportsPdf: true,
     supportsExcel: true
   }
-])
+]
 </script>
 
 <template>
@@ -50,9 +57,13 @@ const items = ref<ExportItem[]>([
         <div>
           <h1 class="text-2xl font-bold text-gray-800">Exports</h1>
           <p class="text-sm text-gray-500">
-            Export des données clés en PDF ou Excel pour le reporting ou l’archivage.
+            Export des données en CSV (compatible Excel) pour le reporting ou l'archivage.
           </p>
         </div>
+      </div>
+
+      <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        {{ error }}
       </div>
 
       <!-- Liste des exports -->
@@ -73,18 +84,13 @@ const items = ref<ExportItem[]>([
 
           <div class="flex items-center gap-2 mt-2">
             <button
-              v-if="item.supportsPdf"
-              class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-            >
-              <Download class="w-4 h-4" />
-              PDF
-            </button>
-            <button
               v-if="item.supportsExcel"
-              class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+              :disabled="isDownloading !== null"
+              @click="doExport(item.id, 'csv')"
+              class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               <Download class="w-4 h-4" />
-              Excel
+              {{ isDownloading === item.id + 'csv' ? 'Téléchargement...' : 'Excel / CSV' }}
             </button>
           </div>
         </div>
@@ -92,4 +98,3 @@ const items = ref<ExportItem[]>([
     </div>
   </div>
 </template>
-
